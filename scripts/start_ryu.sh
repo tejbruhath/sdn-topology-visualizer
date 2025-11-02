@@ -5,9 +5,20 @@ echo "=========================================="
 echo "Starting Ryu SDN Controller"
 echo "=========================================="
 
+# Get project root and activate venv
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -d "$PROJECT_ROOT/venv" ]; then
+    echo "Activating virtual environment..."
+    source "$PROJECT_ROOT/venv/bin/activate"
+else
+    echo "⚠️  Virtual environment not found!"
+    echo "   Please run ./scripts/setup.sh first"
+    exit 1
+fi
+
 # Check if Ryu is installed
 if ! command -v ryu-manager &> /dev/null; then
-    echo "❌ ryu-manager not found!"
+    echo "❌ ryu-manager not found in virtual environment!"
     echo "   Please run ./scripts/setup.sh first"
     exit 1
 fi

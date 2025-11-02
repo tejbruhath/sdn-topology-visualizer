@@ -1,10 +1,11 @@
 # Complete Package Version Specification
 
-## ✅ Final Version List (As Specified)
+## ✅ Final Version List (Python 3.8 Compatible)
 
 ### Operating System
-- **Debian 11+ (Bullseye)** or **Ubuntu 20.04/22.04 LTS**
-- **Python 3.10+** (automatically installed by setup.sh)
+- **Ubuntu 20.04 LTS** (Primary target - comes with Python 3.8.10)
+- **Debian 11+ (Bullseye)** or **Ubuntu 22.04 LTS** (also compatible)
+- **Python 3.8+** (Ubuntu 20.04 default, automatically verified by setup.sh)
 
 ### System Packages (via apt)
 
@@ -12,26 +13,55 @@
 mininet           # 2.3.0+ (Ubuntu package)
 openvswitch-switch # 2.13+ (Ubuntu 20.04) or 2.17+ (Ubuntu 22.04)
 openvswitch-common # Same as above
-python3.10        # Enforced by setup script
+python3.8         # Ubuntu 20.04 default (verified by setup script)
 python3-pip       # Latest from distro
 git               # Any recent version
 ```
 
 ### Python Packages (via pip)
 
-**requirements.txt** - All versions match specification:
+**requirements.txt** - Python 3.8 Compatible Versions:
 
 ```
-Flask==3.0.0
-Flask-SocketIO==5.3.5
-Flask-CORS==4.0.0
-python-socketio==5.10.0
-python-engineio==4.8.0
-requests==2.31.0
+# SDN Controller
 ryu==4.34
+
+# Web Framework
+Flask==2.3.3
+Werkzeug==2.3.7
+
+# WebSocket Support
+Flask-SocketIO==5.3.4
+python-socketio==5.9.0
+python-engineio==4.7.1
+
+# CORS
+Flask-CORS==4.0.0
+
+# Async/Event Loop
 eventlet==0.33.3
-werkzeug==3.0.1
-python-dotenv==1.0.0
+greenlet==2.0.2
+
+# HTTP Client
+requests==2.31.0
+urllib3==2.0.4
+certifi==2023.7.22
+charset-normalizer==3.2.0
+idna==3.4
+
+# Ryu Dependencies (pinned for safety)
+msgpack==1.0.5
+netaddr==0.8.0
+ovs==2.17.0
+Routes==2.5.1
+WebOb==1.8.7
+tinyrpc==1.1.7
+
+# Other Dependencies
+six==1.16.0
+packaging==23.1
+
+# Testing
 pytest==7.4.2
 pytest-cov==4.1.0
 ```
@@ -55,8 +85,8 @@ After running `./scripts/setup.sh`, verify all versions:
 ```bash
 # System packages
 echo "=== System Versions ==="
-python3 --version                    # Should be 3.10.x or higher
-pip3 --version                       # Should be 23.x+
+python3 --version                    # Should be 3.8.x or higher
+pip3 --version                       # Should be 20.x+ or 23.x+
 sudo mn --version                    # Should be 2.3.x
 sudo ovs-vsctl --version | head -n 1 # Should be 2.13+ or 2.17+
 ryu-manager --version                # Should be 4.34
@@ -67,39 +97,41 @@ python3 -c "
 import flask, flask_socketio, flask_cors, requests, ryu
 import socketio as python_socketio
 import engineio as python_engineio
-import eventlet, werkzeug
+import eventlet, werkzeug, greenlet
 
-print(f'Flask:             {flask.__version__}          (expected: 3.0.0)')
-print(f'Flask-SocketIO:    {flask_socketio.__version__}        (expected: 5.3.5)')
+print(f'Flask:             {flask.__version__}          (expected: 2.3.3)')
+print(f'Werkzeug:          {werkzeug.__version__}        (expected: 2.3.7)')
+print(f'Flask-SocketIO:    {flask_socketio.__version__}        (expected: 5.3.4)')
 print(f'Flask-CORS:        {flask_cors.__version__}        (expected: 4.0.0)')
-print(f'python-socketio:   {python_socketio.__version__}       (expected: 5.10.0)')
-print(f'python-engineio:   {python_engineio.__version__}        (expected: 4.8.0)')
+print(f'python-socketio:   {python_socketio.__version__}        (expected: 5.9.0)')
+print(f'python-engineio:   {python_engineio.__version__}        (expected: 4.7.1)')
 print(f'requests:          {requests.__version__}       (expected: 2.31.0)')
 print(f'ryu:               {ryu.__version__}            (expected: 4.34)')
 print(f'eventlet:          {eventlet.__version__}       (expected: 0.33.3)')
-print(f'werkzeug:          {werkzeug.__version__}        (expected: 3.0.1)')
+print(f'greenlet:          {greenlet.__version__}        (expected: 2.0.2)')
 "
 ```
 
 **Expected Output:**
 ```
 === System Versions ===
-Python 3.10.12
-pip 23.3.1
+Python 3.8.10
+pip 20.0.2 (or 23.x+)
 mininet 2.3.0
-ovs-vsctl (Open vSwitch) 2.17.0
+ovs-vsctl (Open vSwitch) 2.13.x
 ryu-manager 4.34
 
 === Python Package Versions ===
-Flask:             3.0.0          (expected: 3.0.0) ✓
-Flask-SocketIO:    5.3.5          (expected: 5.3.5) ✓
+Flask:             2.3.3          (expected: 2.3.3) ✓
+Werkzeug:          2.3.7          (expected: 2.3.7) ✓
+Flask-SocketIO:    5.3.4          (expected: 5.3.4) ✓
 Flask-CORS:        4.0.0          (expected: 4.0.0) ✓
-python-socketio:   5.10.0         (expected: 5.10.0) ✓
-python-engineio:   4.8.0          (expected: 4.8.0) ✓
+python-socketio:   5.9.0          (expected: 5.9.0) ✓
+python-engineio:   4.7.1          (expected: 4.7.1) ✓
 requests:          2.31.0         (expected: 2.31.0) ✓
 ryu:               4.34           (expected: 4.34) ✓
 eventlet:          0.33.3         (expected: 0.33.3) ✓
-werkzeug:          3.0.1          (expected: 3.0.1) ✓
+greenlet:          2.0.2          (expected: 2.0.2) ✓
 ```
 
 ---
@@ -108,36 +140,37 @@ werkzeug:          3.0.1          (expected: 3.0.1) ✓
 
 | Ubuntu Version | Python Default | Mininet | Open vSwitch | Status |
 |---------------|----------------|---------|--------------|--------|
-| 20.04 LTS | 3.8 → 3.10 ✓ | 2.3.0 ✓ | 2.13.x ✓ | Tested ✓ |
-| 22.04 LTS | 3.10 ✓ | 2.3.1 ✓ | 2.17.x ✓ | Recommended ✓ |
+| 20.04 LTS | 3.8.10 ✓ | 2.3.0 ✓ | 2.13.x ✓ | **Primary Target** ✓ |
+| 22.04 LTS | 3.10 ✓ | 2.3.1 ✓ | 2.17.x ✓ | Compatible ✓ |
 | 24.04 LTS | 3.12 ✓ | 2.3.x ✓ | 3.x ✓ | Should work ✓ |
 
 | Debian Version | Python Default | Mininet | Open vSwitch | Status |
 |---------------|----------------|---------|--------------|--------|
-| 11 (Bullseye) | 3.9 → 3.10 ✓ | 2.3.0 ✓ | 2.15.x ✓ | Tested ✓ |
+| 11 (Bullseye) | 3.9 ✓ | 2.3.0 ✓ | 2.15.x ✓ | Compatible ✓ |
 | 12 (Bookworm) | 3.11 ✓ | 2.3.0 ✓ | 3.1.x ✓ | Compatible ✓ |
 
 ---
 
 ## ⚠️ Known Version Issues
 
-### 1. Flask 2.x vs 3.x
-**Issue:** Flask 3.0 has breaking changes from 2.x
-**Resolution:** We use Flask 3.0.0 with compatible code
-**Breaking changes handled:**
-- Import paths (all correct in our code)
-- Werkzeug dependency (pinned to 3.0.1)
+### 1. Python 3.8 Compatibility
+**Issue:** Need to ensure all packages work with Python 3.8
+**Resolution:** We use Flask 2.3.3 (stable for Python 3.8)
+**Key points:**
+- Flask 2.3.3 is the last stable 2.x version
+- Werkzeug 2.3.7 is compatible with Flask 2.3.3
+- All packages tested on Ubuntu 20.04 (Python 3.8.10)
 
-### 2. Socket.IO Version Mismatch
+### 2. Socket.IO Version Compatibility
 **Issue:** Server (python-socketio) and client (socket.io-client) must be compatible
 **Resolution:**
-- Server: python-socketio 5.10.0
+- Server: python-socketio 5.9.0
 - Client: socket.io 4.5.4 (CDN)
 - These are compatible ✓
 
-### 3. Python 3.8 vs 3.10
-**Issue:** Some packages work differently on Python 3.8
-**Resolution:** setup.sh enforces Python 3.10+
+### 3. Eventlet and Greenlet
+**Issue:** eventlet requires specific greenlet version
+**Resolution:** greenlet 2.0.2 is pinned (compatible with eventlet 0.33.3)
 
 ### 4. Eventlet vs Gevent
 **Issue:** Flask-SocketIO can use either
@@ -151,23 +184,23 @@ werkzeug:          3.0.1          (expected: 3.0.1) ✓
 
 ```bash
 # Uninstall old version
-pip3 uninstall Flask flask-socketio
+pip3 uninstall Flask flask-socketio Werkzeug
 
 # Install correct versions
-pip3 install Flask==3.0.0 Flask-SocketIO==5.3.5
+pip3 install Flask==2.3.3 Werkzeug==2.3.7 Flask-SocketIO==5.3.4
 ```
 
 ### Problem: Wrong Python version
 
 ```bash
-# Install Python 3.10
-sudo apt-get install -y software-properties-common
-sudo add-apt-repository -y ppa:deadsnakes/ppa
-sudo apt-get update
-sudo apt-get install -y python3.10 python3.10-dev
+# Ubuntu 20.04 comes with Python 3.8 by default - no action needed!
+python3 --version  # Should show 3.8.10
+
+# If you have older Python, install 3.8:
+sudo apt-get install -y python3.8 python3.8-dev
 
 # Set as default
-sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
 
 # Reinstall packages
 pip3 install -r backend/requirements.txt
@@ -177,7 +210,7 @@ pip3 install -r backend/requirements.txt
 
 ```bash
 # Use virtual environment (recommended)
-python3.10 -m venv venv
+python3.8 -m venv venv
 source venv/bin/activate
 pip install -r backend/requirements.txt
 

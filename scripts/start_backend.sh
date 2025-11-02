@@ -5,6 +5,17 @@ echo "=========================================="
 echo "Starting SDN Visualizer Backend"
 echo "=========================================="
 
+# Get project root and activate venv
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -d "$PROJECT_ROOT/venv" ]; then
+    echo "Activating virtual environment..."
+    source "$PROJECT_ROOT/venv/bin/activate"
+else
+    echo "⚠️  Virtual environment not found!"
+    echo "   Please run ./scripts/setup.sh first"
+    exit 1
+fi
+
 # Check if Ryu is running
 if ! pgrep -f "ryu-manager" > /dev/null; then
     echo "⚠️  WARNING: Ryu controller is not running!"

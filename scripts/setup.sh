@@ -49,26 +49,26 @@ echo "=========================================="
 
 # Check Python version
 PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-REQUIRED_VERSION="3.10"
+REQUIRED_VERSION="3.8"
 
 echo "Current Python version: $PYTHON_VERSION"
 
-# Compare versions
-if python3 -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)"; then
-    echo "✓ Python 3.10+ is installed"
+# Compare versions - now checking for Python 3.8+
+if python3 -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+    echo "✓ Python 3.8+ is installed"
 else
-    echo "⚠️  Python 3.10+ required, but found $PYTHON_VERSION"
-    echo "Installing Python 3.10..."
+    echo "⚠️  Python 3.8+ required, but found $PYTHON_VERSION"
+    echo "Installing Python 3.8..."
     
     sudo apt-get install -y software-properties-common
     sudo add-apt-repository -y ppa:deadsnakes/ppa
     sudo apt-get update
-    sudo apt-get install -y python3.10 python3.10-dev python3.10-venv
+    sudo apt-get install -y python3.8 python3.8-dev python3.8-venv
     
-    # Update alternatives to use Python 3.10
-    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+    # Update alternatives to use Python 3.8
+    sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.8 1
     
-    echo "✓ Python 3.10 installed"
+    echo "✓ Python 3.8 installed"
 fi
 
 echo ""
@@ -131,25 +131,71 @@ fi
 
 echo ""
 echo "=========================================="
-echo "Step 6: Installing Python Dependencies"
+echo "Step 6: Creating Python Virtual Environment"
 echo "=========================================="
 
-# Upgrade pip
-echo "Upgrading pip..."
-python3 -m pip install --upgrade pip
+# Get project root
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
-# Verify Python version before installing packages
-echo "Verifying Python 3.10+ for package installation..."
-if ! python3 -c "import sys; exit(0 if sys.version_info >= (3, 10) else 1)"; then
-    echo "❌ Python 3.10+ is required but not found"
-    echo "   Please re-run this script to install Python 3.10"
+# Check if venv already exists
+if [ -d "venv" ]; then
+    echo "⚠️  Virtual environment already exists"
+    read -p "Recreate it? (y/n) " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "Removing old virtual environment..."
+        rm -rf venv
+    else
+        echo "Using existing virtual environment"
+    fi
+fi
+
+# Create virtual environment if it doesn't exist
+if [ ! -d "venv" ]; then
+    echo "Creating Python 3.8 virtual environment..."
+    python3 -m venv venv
+    
+    if [ ! -d "venv" ]; then
+        echo "❌ Failed to create virtual environment"
+        exit 1
+    fi
+    
+    echo "✓ Virtual environment created"
+fi
+
+# Activate virtual environment
+echo "Activating virtual environment..."
+source venv/bin/activate
+
+# Verify we're in venv
+if [ -z "$VIRTUAL_ENV" ]; then
+    echo "❌ Failed to activate virtual environment"
+    exit 1
+fi
+
+echo "✓ Virtual environment activated: $VIRTUAL_ENV"
+
+echo ""
+echo "=========================================="
+echo "Step 7: Installing Python Dependencies"
+echo "=========================================="
+
+# Upgrade pip in venv
+echo "Upgrading pip in virtual environment..."
+pip install --upgrade pip
+
+# Verify Python version
+echo "Verifying Python 3.8+ in virtual environment..."
+python --version
+if ! python -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+    echo "❌ Python 3.8+ is required but not found in venv"
     exit 1
 fi
 
 # Install from requirements.txt with exact versions
 echo "Installing Python packages with specified versions..."
-cd "$(dirname "$0")/.."
-python3 -m pip install -r backend/requirements.txt
+pip install -r backend/requirements.txt
 
 # Verify key packages
 echo ""
@@ -157,14 +203,16 @@ echo "Verifying installed packages..."
 python3 -c "
 import sys
 required_packages = {
-    'Flask': '3.0.0',
-    'flask_socketio': '5.3.5',
+    'Flask': '2.3.3',
+    'Werkzeug': '2.3.7',
+    'flask_socketio': '5.3.4',
     'flask_cors': '4.0.0',
     'requests': '2.31.0',
     'ryu': '4.34',
-    'python_socketio': '5.10.0',
-    'python_engineio': '4.8.0',
-    'eventlet': '0.33.3'
+    'python_socketio': '5.9.0',
+    'python_engineio': '4.7.1',
+    'eventlet': '0.33.3',
+    'greenlet': '2.0.2'
 }
 
 print('Package verification:')
@@ -189,7 +237,7 @@ fi
 
 echo ""
 echo "=========================================="
-echo "Step 7: Configuring System"
+echo "Step 8: Configuring System"
 echo "=========================================="
 
 # Clean any existing Mininet processes
@@ -206,7 +254,7 @@ fi
 
 echo ""
 echo "=========================================="
-echo "Step 8: Creating Helper Scripts"
+echo "Step 9: Creating Helper Scripts"
 echo "=========================================="
 
 # Make all scripts executable
@@ -216,7 +264,7 @@ echo "✓ Scripts are now executable"
 
 echo ""
 echo "=========================================="
-echo "Step 9: Final Verification"
+echo "Step 10: Final Verification"
 echo "=========================================="
 
 echo ""
@@ -248,13 +296,21 @@ echo "=========================================="
 echo "✅ Setup Complete!"
 echo "=========================================="
 echo ""
+echo "⚠️  IMPORTANT: Activate virtual environment before running:"
+echo ""
+echo "   source venv/bin/activate"
+echo ""
 echo "Next steps:"
-echo "1. Start Ryu controller:  ./scripts/start_ryu.sh"
-echo "2. Start Flask backend:   ./scripts/start_backend.sh"
-echo "3. Open browser:          http://localhost:5000"
+echo "1. Activate venv:         source venv/bin/activate"
+echo "2. Start Ryu controller:  ./scripts/start_ryu.sh"
+echo "3. Start Flask backend:   ./scripts/start_backend.sh"
+echo "4. Open browser:          http://localhost:5000"
 echo ""
 echo "For testing:              ./scripts/test_connection.sh"
 echo "For cleanup:              ./scripts/cleanup.sh"
+echo ""
+echo "Note: Mininet is installed system-wide (required for network emulation)"
+echo "      Python packages are in the virtual environment (venv/)"
 echo ""
 echo "See README.md for detailed usage instructions"
 echo ""
