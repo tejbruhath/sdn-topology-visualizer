@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDN Topology Visualizer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #e2e8f0;
+            overflow: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 60px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        /* Header */
+        header {
+            grid-column: 1 / -1;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: rgba(34, 197, 94, 0.1);
+            border-radius: 20px;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+
+        .status.disconnected {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status.disconnected .status-dot {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        /* Left Panel - Controls */
+        .left-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .panel-section {
+            margin-bottom: 2rem;
+        }
+
+        .panel-section h3 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 1rem;
+            font-weight: 600;
+        }
+
+        select, input, button {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(15, 23, 42, 0.8);
+            color: #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: 600;
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            border: none;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Center - Visualization */
+        .visualization {
+            position: relative;
+            background: radial-gradient(circle at center, rgba(30, 41, 59, 0.4), rgba(15, 23, 42, 0.8));
+        }
+
+        #topology-graph {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Right Panel - Stats */
+        .right-panel {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(148, 163, 184, 0.1);
+            padding: 1.5rem;
+            overflow-y: auto;
+        }
+
+        .stat-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .stat-card h4 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+
+        /* D3 Styles */
+        .node circle {
+            stroke: #1e293b;
+            stroke-width: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .node.switch circle {
+            fill: #3b82f6;
+        }
+
+        .node.host circle {
+            fill: #22c55e;
+        }
+
+        .node:hover circle {
+            filter: drop-shadow(0 0 10px currentColor);
+        }
+
+        .node text {
+            font-size: 12px;
+            fill: #e2e8f0;
+            text-anchor: middle;
+            pointer-events: none;
+        }
+
+        .link {
+            stroke: rgba(148, 163, 184, 0.3);
+            stroke-width: 2px;
+            transition: all 0.2s;
+        }
+
+        .link:hover {
+            stroke: #3b82f6;
+            stroke-width: 4px;
+        }
+
+        /* Loading Overlay */
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(15, 23, 42, 0.9);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .loading.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(59, 130, 246, 0.2);
+            border-top-color: #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .log {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.75rem;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            color: #94a3b8;
+        }
+
+        .log-entry.success { color: #22c55e; }
+        .log-entry.error { color: #ef4444; }
+        .log-entry.info { color: #3b82f6; }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <div class="logo">⚡ SDN Visualizer</div>
+            <div class="status" id="status">
+                <div class="status-dot"></div>
+                <span id="status-text">Connecting...</span>
+            </div>
+        </header>
+
+        <!-- Left Panel -->
+        <aside class="left-panel">
+            <div class="panel-section">
+                <h3>Topology Control</h3>
+                <select id="topo-type">
+                    <option value="star">Star Topology</option>
+                    <option value="linear">Linear Topology</option>
+                    <option value="tree">Binary Tree</option>
+                    <option value="mesh">Full Mesh</option>
+                </select>
+                <input type="number" id="topo-size" value="4" min="2" max="20" placeholder="Size">
+                <button id="create-btn">Create Topology</button>
+                <button id="stop-btn" class="danger">Stop Topology</button>
+            </div>
+
+            <div class="panel-section">
+                <h3>Network Tests</h3>
+                <button id="pingall-btn">Run Ping All</button>
+            </div>
+
+            <div class="panel-section">
+                <h3>Activity Log</h3>
+                <div class="log" id="activity-log">
+                    <div class="log-entry">System initializing...</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Center Visualization -->
+        <main class="visualization">
+            <svg id="topology-graph"></svg>
+        </main>
+
+        <!-- Right Panel -->
+        <aside class="right-panel">
+            <div class="panel-section">
+                <h3>Network Stats</h3>
+                <div class="stat-card">
+                    <h4>Switches</h4>
+                    <div class="stat-value" id="stat-switches">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Hosts</h4>
+                    <div class="stat-value" id="stat-hosts">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Links</h4>
+                    <div class="stat-value" id="stat-links">0</div>
+                </div>
+                <div class="stat-card">
+                    <h4>Total Packets</h4>
+                    <div class="stat-value" id="stat-packets">0</div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script src="static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+# SDN Visualizer - Python Dependencies
+# All versions match the specification from project requirements
+
+# Web Framework
+Flask==3.0.0
+Flask-SocketIO==5.3.5
+Flask-CORS==4.0.0
+
+# WebSocket Support
+python-socketio==5.10.0
+python-engineio==4.8.0
+
+# HTTP Client
+requests==2.31.0
+
+# Ryu SDN Controller
+ryu==4.34
+
+# WSGI Server (required by Ryu and Flask-SocketIO)
+eventlet==0.33.3
+
+# Utilities
+werkzeug==3.0.1
+python-dotenv==1.0.0
+
+# Testing (optional, but recommended)
+pytest==7.4.2
+pytest-cov==4.1.0
