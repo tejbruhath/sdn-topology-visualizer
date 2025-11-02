@@ -197,7 +197,7 @@ def stats_monitoring_loop():
                 "timestamp": time.time()
             }
             
-            socketio.emit('stats_update', stats_data, broadcast=True)
+            socketio.emit('stats_update', stats_data)
             
         except Exception as e:
             logger.error(f"Error in stats monitoring: {e}")
@@ -291,7 +291,7 @@ def create_topology():
         
         # Get topology data and send to frontend
         topology_data = get_topology_data()
-        socketio.emit('topology_update', topology_data, broadcast=True)
+        socketio.emit('topology_update', topology_data)
         
         logger.info(f"Successfully created {topology_type} topology")
         
@@ -317,7 +317,7 @@ def stop_topology():
         result = mininet_manager.stop()
         
         # Notify frontend
-        socketio.emit('topology_update', {"nodes": [], "edges": [], "topology_type": None}, broadcast=True)
+        socketio.emit('topology_update', {"nodes": [], "edges": [], "topology_type": None})
         
         logger.info("Topology stopped")
         return jsonify(result)

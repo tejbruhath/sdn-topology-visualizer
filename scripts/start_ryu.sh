@@ -53,16 +53,30 @@ echo "Starting Ryu controller..."
 echo "Press Ctrl+C to stop"
 echo ""
 
-ryu-manager \
-    --verbose \
-    --ofp-tcp-listen-port 6633 \
-    --wsapi-port 8080 \
-    --observe-links \
-    ryu.app.ofctl_rest \
-    ryu.app.rest_topology \
-    ryu.app.simple_switch_13 \
-    "$PROJECT_ROOT/ryu_apps/simple_monitor.py" \
-    2>&1 | tee ryu.log
-
-# Note: This will block until Ctrl+C
-# The log will be saved to ryu.log
+# Auto-restart loop - Ryu will restart if it crashes
+while true; do
+    echo "Starting Ryu manager..."
+    ryu-manager \
+        --verbose \
+        --ofp-tcp-listen-port 6633 \
+        --wsapi-port 8080 \
+        --observe-links \
+        ryu.app.simple_switch_13 \
+        ryu.app.ofctl_rest \
+        ryu.app.rest_topology \
+        ryu.topology.switches \
+        "$PROJECT_ROOT/ryu_apps/simple_monitor.py" \
+        2>&1 | tee ryu.log
+    
+    # If we get here, Ryu crashed or was terminated
+    EXIT_CODE=$?
+    if [ $EXIT_CODE -eq 130 ]; then
+        # Ctrl+C (SIGINT) - user wants to stop
+        echo ""
+        echo "Ryu stopped by user"
+        break
+    fi
+    
+    echo "Ryu crashed with exit code $EXIT_CODE. Restarting in 3s..."
+    sleep 3
+done

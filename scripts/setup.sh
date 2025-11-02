@@ -218,7 +218,7 @@ required_packages = {
     'ryu': '4.34',
     'python_socketio': '5.9.0',
     'python_engineio': '4.7.1',
-    'eventlet': '0.33.3',
+    'eventlet': '0.30.2',
     'greenlet': '2.0.2'
 }
 
@@ -239,6 +239,38 @@ if python3 -c "import ryu" 2>/dev/null; then
     ryu-manager --version
 else
     echo "❌ Ryu installation failed"
+    exit 1
+fi
+
+echo ""
+echo "=========================================="
+echo "Step 7.5: Linking Mininet to Virtual Environment"
+echo "=========================================="
+
+# Mininet is installed system-wide, but venv can't see it by default
+# Create a symlink to make it accessible
+MININET_SYSTEM_PATH="/usr/lib/python3/dist-packages/mininet"
+VENV_SITE_PACKAGES="$PROJECT_ROOT/venv/lib/python3.8/site-packages"
+
+if [ -d "$MININET_SYSTEM_PATH" ]; then
+    if [ -L "$VENV_SITE_PACKAGES/mininet" ] || [ -d "$VENV_SITE_PACKAGES/mininet" ]; then
+        echo "✓ Mininet already linked to venv"
+    else
+        echo "Creating symlink: $MININET_SYSTEM_PATH -> $VENV_SITE_PACKAGES/mininet"
+        ln -s "$MININET_SYSTEM_PATH" "$VENV_SITE_PACKAGES/mininet"
+        echo "✓ Mininet linked successfully"
+    fi
+    
+    # Verify it works
+    if python -c "from mininet.net import Mininet" 2>/dev/null; then
+        echo "✓ Mininet import test passed"
+    else
+        echo "❌ Mininet import failed"
+        exit 1
+    fi
+else
+    echo "⚠️  Mininet not found at $MININET_SYSTEM_PATH"
+    echo "   Run: sudo apt install mininet"
     exit 1
 fi
 

@@ -17,7 +17,7 @@ python-engineio==4.7.1
 Flask-CORS==4.0.0
 
 # Async/Event Loop
-eventlet==0.33.3
+eventlet==0.30.2
 greenlet==2.0.2
 
 # HTTP Client
@@ -30,7 +30,7 @@ idna==3.4
 # Ryu Dependencies (auto-installed but pinning for safety)
 msgpack==1.0.5
 netaddr==0.8.0
-ovs==2.17.0
+ovs==2.17.12
 Routes==2.5.1
 WebOb==1.8.7
 tinyrpc==1.1.7
