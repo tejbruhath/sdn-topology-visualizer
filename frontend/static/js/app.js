@@ -151,7 +151,7 @@ async function runPingAll() {
 
 function renderTopology(data) {
     currentTopology = data;
-    const { nodes, edges } = data;
+    const { nodes, edges, topology_type } = data;
     
     // Update stats
     updateStats(
@@ -160,6 +160,13 @@ function renderTopology(data) {
         data.link_count || edges.length,
         null // Keep current packet count
     );
+    
+    // Apply topology-specific positioning
+    if (topology_type === 'linear') {
+        positionLinearTopology(nodes, edges);
+    } else if (topology_type === 'star') {
+        positionStarTopology(nodes, edges);
+    }
     
     // Update links
     const link = linkGroup.selectAll('line')
@@ -196,6 +203,19 @@ function renderTopology(data) {
     // Update simulation
     simulation.nodes(nodes);
     simulation.force('link').links(edges);
+    
+    // For linear/star, use weaker forces to maintain custom positioning
+    if (topology_type === 'linear' || topology_type === 'star') {
+        simulation
+            .force('charge', d3.forceManyBody().strength(-100))
+            .force('link', d3.forceLink().id(d => d.id).distance(120).strength(0.5));
+    } else {
+        // Default force-directed layout for other topologies
+        simulation
+            .force('charge', d3.forceManyBody().strength(-400))
+            .force('link', d3.forceLink().id(d => d.id).distance(150));
+    }
+    
     simulation.alpha(1).restart();
     
     simulation.on('tick', () => {
@@ -208,6 +228,69 @@ function renderTopology(data) {
         nodeGroup.selectAll('g')
             .attr('transform', d => `translate(${d.x},${d.y})`);
     });
+}
+
+function positionLinearTopology(nodes, edges) {
+    // Sort switches by name (s1, s2, s3, ...)
+    const switches = nodes.filter(n => n.type === 'switch')
+        .sort((a, b) => {
+            const numA = parseInt(a.id.substring(1));
+            const numB = parseInt(b.id.substring(1));
+            return numA - numB;
+        });
+    
+    const hosts = nodes.filter(n => n.type === 'host');
+    
+    // Calculate positions for linear chain
+    const spacing = Math.min(200, (width - 100) / (switches.length + 1));
+    const centerY = height / 2;
+    const startX = (width - (spacing * (switches.length - 1))) / 2;
+    
+    // Position switches in a horizontal line
+    switches.forEach((sw, i) => {
+        sw.x = startX + (i * spacing);
+        sw.y = centerY;
+        sw.fx = sw.x; // Fix position
+        sw.fy = sw.y;
+    });
+    
+    // Position hosts below their corresponding switches
+    hosts.forEach(host => {
+        const hostNum = parseInt(host.id.substring(1));
+        const sw = switches.find(s => parseInt(s.id.substring(1)) === hostNum);
+        if (sw) {
+            host.x = sw.x;
+            host.y = sw.y + 100; // Below switch
+            host.fx = host.x;
+            host.fy = host.y;
+        }
+    });
+}
+
+function positionStarTopology(nodes, edges) {
+    const switches = nodes.filter(n => n.type === 'switch');
+    const hosts = nodes.filter(n => n.type === 'host');
+    
+    // Central switch at center
+    if (switches.length > 0) {
+        const centralSwitch = switches[0];
+        centralSwitch.x = width / 2;
+        centralSwitch.y = height / 2;
+        centralSwitch.fx = centralSwitch.x;
+        centralSwitch.fy = centralSwitch.y;
+        
+        // Arrange hosts in a circle around the switch
+        const radius = Math.min(200, Math.min(width, height) / 3);
+        const angleStep = (2 * Math.PI) / hosts.length;
+        
+        hosts.forEach((host, i) => {
+            const angle = i * angleStep;
+            host.x = centralSwitch.x + radius * Math.cos(angle);
+            host.y = centralSwitch.y + radius * Math.sin(angle);
+            host.fx = host.x;
+            host.fy = host.y;
+        });
+    }
 }
 
 function updateStats(switches, hosts, links, packets) {

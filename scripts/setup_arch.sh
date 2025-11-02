@@ -1,46 +1,32 @@
 #!/bin/bash
-# SDN Visualizer - Complete Setup Script for Debian/Ubuntu
-# This script installs all required dependencies
-
-set -e  # Exit on error
+# SDN Visualizer Setup Script for Arch Linux / Manjaro
 
 echo "=========================================="
-echo "SDN Visualizer - Setup Script"
+echo "SDN Visualizer - Arch Linux Setup"
 echo "=========================================="
-echo ""
 
-# Check if running as root
-if [ "$EUID" -eq 0 ]; then
-    echo "⚠️  Please run this script as a regular user (not root)"
-    echo "   The script will ask for sudo when needed"
-    exit 1
-fi
-
-# Check OS
+# Detect OS
 if [ -f /etc/os-release ]; then
     . /etc/os-release
-    OS=$ID
+    echo ""
     echo "✓ Detected OS: $PRETTY_NAME"
 else
-    echo "❌ Cannot detect OS. This script is for Debian/Ubuntu."
+    echo "❌ Cannot detect OS"
     exit 1
 fi
 
-if [[ "$OS" != "debian" && "$OS" != "ubuntu" ]]; then
-    echo "⚠️  This script is designed for Debian/Ubuntu"
-    echo "   Your OS: $OS"
-    read -p "Continue anyway? (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        exit 1
-    fi
+# Check if running Arch-based distro
+if [[ ! "$ID" =~ ^(arch|manjaro|endeavouros|arcolinux)$ ]]; then
+    echo "⚠️  This script is for Arch Linux and derivatives"
+    echo "   For Ubuntu/Debian, use ./setup.sh instead"
+    exit 1
 fi
 
 echo ""
 echo "=========================================="
-echo "Step 1: Updating Package Lists"
+echo "Step 1: Updating System"
 echo "=========================================="
-sudo apt-get update
+sudo pacman -Syu --noconfirm
 
 echo ""
 echo "=========================================="
@@ -48,58 +34,54 @@ echo "Step 2: Checking Python Version"
 echo "=========================================="
 
 # Check Python version
-PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
-REQUIRED_VERSION="3.8"
-
+PYTHON_VERSION=$(python --version 2>&1 | awk '{print $2}')
 echo "Current Python version: $PYTHON_VERSION"
 
-# Check if Python 3.8 is available
-if command -v python3.8 &> /dev/null; then
-    PYTHON_BIN="python3.8"
-    PYTHON_VERSION=$(python3.8 --version 2>&1 | awk '{print $2}')
-    echo "✓ Python 3.8 found: $PYTHON_VERSION"
+# Arch usually has latest Python, check for 3.8+
+if python -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
+    echo "✓ Python 3.8+ is installed"
+    PYTHON_BIN="python"
 else
-    echo "⚠️  Python 3.8 not found, installing..."
-    
-    # Install Python 3.8
-    sudo apt-get install -y software-properties-common
-    sudo add-apt-repository -y ppa:deadsnakes/ppa
-    sudo apt-get update
-    sudo apt-get install -y python3.8 python3.8-dev python3.8-venv
-    
-    if command -v python3.8 &> /dev/null; then
-        PYTHON_BIN="python3.8"
-        echo "✓ Python 3.8 installed"
-    else
-        echo "❌ Failed to install Python 3.8"
-        exit 1
-    fi
+    echo "❌ Python 3.8+ required but not found"
+    exit 1
 fi
-
-echo "Will use: $PYTHON_BIN for virtual environment"
 
 echo ""
 echo "=========================================="
 echo "Step 3: Installing System Dependencies"
 echo "=========================================="
-sudo apt-get install -y \
+
+# Core development tools
+sudo pacman -S --needed --noconfirm \
+    base-devel \
     git \
-    python3-pip \
-    python3-dev \
-    build-essential \
     curl \
-    wget
+    wget \
+    python-pip
 
 echo ""
 echo "=========================================="
 echo "Step 4: Installing Mininet"
 echo "=========================================="
+
 if command -v mn &> /dev/null; then
     echo "✓ Mininet already installed"
     mn --version
 else
-    echo "Installing Mininet..."
-    sudo apt-get install -y mininet
+    echo "Installing Mininet from AUR..."
+    
+    # Check if yay is installed
+    if ! command -v yay &> /dev/null; then
+        echo "Installing yay (AUR helper)..."
+        cd /tmp
+        git clone https://aur.archlinux.org/yay.git
+        cd yay
+        makepkg -si --noconfirm
+        cd -
+    fi
+    
+    # Install Mininet via AUR
+    yay -S --noconfirm mininet
     
     # Verify installation
     if command -v mn &> /dev/null; then
@@ -115,16 +97,17 @@ echo ""
 echo "=========================================="
 echo "Step 5: Installing Open vSwitch"
 echo "=========================================="
+
 if command -v ovs-vsctl &> /dev/null; then
     echo "✓ Open vSwitch already installed"
     ovs-vsctl --version | head -n 1
 else
     echo "Installing Open vSwitch..."
-    sudo apt-get install -y openvswitch-switch openvswitch-common
+    sudo pacman -S --needed --noconfirm openvswitch
     
-    # Start OVS service
-    sudo systemctl start openvswitch-switch
-    sudo systemctl enable openvswitch-switch
+    # Enable and start OVS service
+    sudo systemctl enable ovs-vswitchd
+    sudo systemctl start ovs-vswitchd
     
     # Verify installation
     if command -v ovs-vsctl &> /dev/null; then
@@ -160,7 +143,7 @@ fi
 
 # Create virtual environment if it doesn't exist
 if [ ! -d "venv" ]; then
-    echo "Creating Python 3.8 virtual environment with $PYTHON_BIN..."
+    echo "Creating Python virtual environment..."
     $PYTHON_BIN -m venv venv
     
     if [ ! -d "venv" ]; then
@@ -168,7 +151,7 @@ if [ ! -d "venv" ]; then
         exit 1
     fi
     
-    echo "✓ Virtual environment created with $PYTHON_BIN"
+    echo "✓ Virtual environment created"
 fi
 
 # Activate virtual environment
@@ -193,12 +176,8 @@ echo "Upgrading pip in virtual environment..."
 pip install --upgrade pip
 
 # Verify Python version
-echo "Verifying Python 3.8+ in virtual environment..."
+echo "Verifying Python version in virtual environment..."
 python --version
-if ! python -c "import sys; exit(0 if sys.version_info >= (3, 8) else 1)"; then
-    echo "❌ Python 3.8+ is required but not found in venv"
-    exit 1
-fi
 
 # Install from requirements.txt with exact versions
 echo "Installing Python packages with specified versions..."
@@ -207,7 +186,7 @@ pip install -r backend/requirements.txt
 # Verify key packages
 echo ""
 echo "Verifying installed packages..."
-python3 -c "
+python -c "
 import sys
 required_packages = {
     'Flask': '2.3.3',
@@ -234,7 +213,7 @@ for package, expected_version in required_packages.items():
 "
 
 # Verify Ryu installation
-if python3 -c "import ryu" 2>/dev/null; then
+if python -c "import ryu" 2>/dev/null; then
     echo "✓ Ryu installed successfully"
     ryu-manager --version
 else
@@ -252,11 +231,11 @@ echo "Cleaning up any existing Mininet processes..."
 sudo mn -c 2>/dev/null || true
 
 # Check if OVS is running
-if sudo systemctl is-active --quiet openvswitch-switch; then
+if sudo systemctl is-active --quiet ovs-vswitchd; then
     echo "✓ Open vSwitch service is running"
 else
     echo "⚠️  Starting Open vSwitch service..."
-    sudo systemctl start openvswitch-switch
+    sudo systemctl start ovs-vswitchd
 fi
 
 echo ""
@@ -280,13 +259,13 @@ echo ""
 
 # Python version
 echo -n "Python: "
-python3 --version
+python --version
 
 # Mininet
 echo -n "Mininet: "
 mn --version 2>&1 | head -n 1
 
-# OVS
+# Open vSwitch
 echo -n "Open vSwitch: "
 ovs-vsctl --version | head -n 1
 
@@ -296,7 +275,7 @@ ryu-manager --version 2>&1 | head -n 1
 
 # Flask
 echo -n "Flask: "
-python3 -c "import flask; print(flask.__version__)"
+python -c "import flask; print(flask.__version__)"
 
 echo ""
 echo "=========================================="

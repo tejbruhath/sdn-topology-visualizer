@@ -73,33 +73,55 @@ def get_topology_data():
                 "dpid": switch['dpid']
             })
         
-        # Add host nodes
+        # Add host nodes (deduplicate by MAC)
+        seen_macs = set()
         for host in hosts:
+            mac = host['mac']
+            
+            # Skip duplicate MACs
+            if mac in seen_macs:
+                continue
+            seen_macs.add(mac)
+            
             # Find which switch the host is connected to
             port_info = host.get('port', {})
             switch_dpid = port_info.get('dpid', '')
             
+            # Get host IP or use MAC-based name
+            ip_list = host.get('ipv4', [])
+            ip_addr = ip_list[0] if ip_list else None
+            host_name = ip_addr if ip_addr else mac[-8:]  # Last 8 chars of MAC
+            
             nodes.append({
-                "id": host['mac'],
-                "name": host.get('ipv4', ['Unknown'])[0] if host.get('ipv4') else 'Unknown',
+                "id": mac,
+                "name": host_name,
                 "type": "host",
-                "mac": host['mac'],
-                "ip": host.get('ipv4', ['Unknown'])[0] if host.get('ipv4') else 'Unknown',
+                "mac": mac,
+                "ip": ip_addr if ip_addr else 'Unknown',
                 "connected_to": f"s{int(switch_dpid, 16)}" if switch_dpid else None
             })
             
             # Add link from host to switch
             if switch_dpid:
                 edges.append({
-                    "source": host['mac'],
+                    "source": mac,
                     "target": f"s{int(switch_dpid, 16)}",
                     "type": "host-switch"
                 })
         
-        # Add switch-to-switch links
+        # Add switch-to-switch links (deduplicate bidirectional links)
+        seen_links = set()
         for link in links:
             src_dpid = int(link['src']['dpid'], 16)
             dst_dpid = int(link['dst']['dpid'], 16)
+            
+            # Create a canonical link ID (smaller dpid first)
+            link_id = tuple(sorted([src_dpid, dst_dpid]))
+            
+            # Skip if we've already added this link
+            if link_id in seen_links:
+                continue
+            seen_links.add(link_id)
             
             edges.append({
                 "source": f"s{src_dpid}",
@@ -114,7 +136,8 @@ def get_topology_data():
             "edges": edges,
             "switch_count": len(switches),
             "host_count": len(hosts),
-            "link_count": len(edges)
+            "link_count": len(edges),
+            "topology_type": mininet_manager.topology_type
         }
         
     except Exception as e:
@@ -125,6 +148,7 @@ def get_topology_data():
             "switch_count": 0,
             "host_count": 0,
             "link_count": 0,
+            "topology_type": None,
             "error": str(e)
         }
 
@@ -293,7 +317,7 @@ def stop_topology():
         result = mininet_manager.stop()
         
         # Notify frontend
-        socketio.emit('topology_update', {"nodes": [], "edges": []}, broadcast=True)
+        socketio.emit('topology_update', {"nodes": [], "edges": [], "topology_type": None}, broadcast=True)
         
         logger.info("Topology stopped")
         return jsonify(result)
