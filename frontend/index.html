@@ -44,6 +44,7 @@
             font-size: 1.5rem;
             font-weight: bold;
             background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+            background-clip: text;
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
@@ -216,6 +217,19 @@
             stroke: rgba(148, 163, 184, 0.3);
             stroke-width: 2px;
             transition: all 0.2s;
+        }
+
+        .link.synthetic {
+            stroke: rgba(148, 163, 184, 0.2);
+            stroke-width: 2px;
+            stroke-dasharray: 5, 5;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -10;
+            }
         }
 
         .link:hover {

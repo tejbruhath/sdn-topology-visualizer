@@ -149,15 +149,129 @@ async function runPingAll() {
 
 // ============== VISUALIZATION ==============
 
+function generateSyntheticLinks(nodes, topology_type) {
+    const edges = [];
+    const switches = nodes.filter(n => n.type === 'switch')
+        .sort((a, b) => {
+            const numA = parseInt(a.id.substring(1));
+            const numB = parseInt(b.id.substring(1));
+            return numA - numB;
+        });
+    const hosts = nodes.filter(n => n.type === 'host');
+    
+    if (topology_type === 'linear') {
+        // Connect switches in a chain: s1-s2-s3-s4
+        for (let i = 0; i < switches.length - 1; i++) {
+            edges.push({
+                source: switches[i].id,
+                target: switches[i + 1].id,
+                type: 'switch-switch',
+                synthetic: true
+            });
+        }
+        
+        // Connect each host to its switch (h1->s1, h2->s2, etc.)
+        switches.forEach((sw, i) => {
+            // Find host with matching number
+            const hostNum = parseInt(sw.id.substring(1));
+            const host = hosts.find(h => {
+                // Try to match by IP (10.0.0.X) or by index
+                return h.ip === `10.0.0.${hostNum}` || h.name === `10.0.0.${hostNum}`;
+            }) || hosts[i]; // Fallback to index match
+            
+            if (host) {
+                edges.push({
+                    source: host.id,
+                    target: sw.id,
+                    type: 'host-switch',
+                    synthetic: true
+                });
+            }
+        });
+        
+    } else if (topology_type === 'star') {
+        // Central switch connects to all hosts
+        if (switches.length > 0) {
+            const centralSwitch = switches[0];
+            hosts.forEach(host => {
+                edges.push({
+                    source: host.id,
+                    target: centralSwitch.id,
+                    type: 'host-switch',
+                    synthetic: true
+                });
+            });
+        }
+        
+    } else if (topology_type === 'tree') {
+        // Connect switches in tree structure
+        switches.forEach((sw, i) => {
+            if (i > 0) {
+                const parentIdx = Math.floor((i - 1) / 2);
+                edges.push({
+                    source: switches[parentIdx].id,
+                    target: sw.id,
+                    type: 'switch-switch',
+                    synthetic: true
+                });
+            }
+        });
+        
+        // Connect hosts to leaf switches
+        hosts.forEach((host, i) => {
+            const sw = switches[Math.floor(switches.length / 2) + i] || switches[switches.length - 1];
+            edges.push({
+                source: host.id,
+                target: sw.id,
+                type: 'host-switch',
+                synthetic: true
+            });
+        });
+        
+    } else if (topology_type === 'mesh') {
+        // Full mesh: every switch connected to every other
+        for (let i = 0; i < switches.length; i++) {
+            for (let j = i + 1; j < switches.length; j++) {
+                edges.push({
+                    source: switches[i].id,
+                    target: switches[j].id,
+                    type: 'switch-switch',
+                    synthetic: true
+                });
+            }
+        }
+        
+        // Each host to its switch
+        switches.forEach((sw, i) => {
+            if (hosts[i]) {
+                edges.push({
+                    source: hosts[i].id,
+                    target: sw.id,
+                    type: 'host-switch',
+                    synthetic: true
+                });
+            }
+        });
+    }
+    
+    return edges;
+}
+
 function renderTopology(data) {
     currentTopology = data;
-    const { nodes, edges, topology_type } = data;
+    let { nodes, edges, topology_type } = data;
+    
+    // Generate synthetic links if topology type is known but links are missing
+    if (topology_type && nodes.length > 0 && edges.length === 0) {
+        log(`⚠️ No links from backend, generating synthetic ${topology_type} links`, 'info');
+        edges = generateSyntheticLinks(nodes, topology_type);
+    }
     
     // Update stats
     updateStats(
         data.switch_count || nodes.filter(n => n.type === 'switch').length,
         data.host_count || nodes.filter(n => n.type === 'host').length,
-        data.link_count || edges.length,
+        edges.length,
         null // Keep current packet count
     );
     
@@ -176,7 +290,7 @@ function renderTopology(data) {
     
     const linkEnter = link.enter()
         .append('line')
-        .attr('class', 'link');
+        .attr('class', d => d.synthetic ? 'link synthetic' : 'link');
     
     // Update nodes
     const node = nodeGroup.selectAll('g')

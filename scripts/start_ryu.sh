@@ -42,6 +42,7 @@ echo "Configuration:"
 echo "  OpenFlow Port: 6633"
 echo "  REST API Port: 8080"
 echo "  Protocol: OpenFlow 1.3"
+echo "  Link Discovery: Enabled (LLDP)"
 echo ""
 
 # Get the project root directory
@@ -56,6 +57,7 @@ ryu-manager \
     --verbose \
     --ofp-tcp-listen-port 6633 \
     --wsapi-port 8080 \
+    --observe-links \
     ryu.app.ofctl_rest \
     ryu.app.rest_topology \
     ryu.app.simple_switch_13 \
